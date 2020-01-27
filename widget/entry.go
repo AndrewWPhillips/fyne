@@ -234,6 +234,8 @@ type Entry struct {
 	shortcut    fyne.ShortcutHandler
 	Text        string
 	PlaceHolder string
+	OnTypedRune  func(r rune) bool `json:"-"`
+	OnTypedKey   func(key *fyne.KeyEvent) bool `json:"-"`
 	OnChanged   func(string) `json:"-"`
 	Password    bool
 	ReadOnly    bool // Deprecated: Use Disable() instead
@@ -273,9 +275,9 @@ func (e *Entry) SetText(text string) {
 		e.CursorColumn = 0
 		e.CursorRow = 0
 		e.Unlock()
-		Renderer(e).(*entryRenderer).moveCursor()
 	} else {
 		provider := e.textProvider()
+		e.Lock()
 		if e.CursorRow >= provider.rows() {
 			e.CursorRow = provider.rows() - 1
 		}
@@ -283,7 +285,31 @@ func (e *Entry) SetText(text string) {
 		if e.CursorColumn >= rowLength {
 			e.CursorColumn = rowLength
 		}
+		e.Unlock()
 	}
+	Renderer(e).(*entryRenderer).moveCursor()
+}
+
+// SetTextAndCursor sets the text of the Entry and the position of the cursor.
+func (e *Entry) SetTextAndCursor(text string, pos int) {
+	e.textProvider().SetText(text)
+	e.updateText(text)
+
+	e.Lock()
+	e.CursorRow, e.CursorColumn = e.rowColFromTextPos(pos)
+	e.selectRow, e.selectColumn = e.CursorRow, e.CursorColumn
+	e.Unlock()
+	Renderer(e).(*entryRenderer).moveCursor()
+}
+
+// SetSelection sets which characters are selected.
+// To set the cursor make both parameters the same.
+func (e *Entry) SetSelection(pos, sel int) {
+	e.Lock()
+	e.CursorRow, e.CursorColumn = e.rowColFromTextPos(pos)
+	e.selectRow, e.selectColumn = e.rowColFromTextPos(sel)
+	e.Unlock()
+	Renderer(e).(*entryRenderer).moveCursor()
 }
 
 // SetPlaceHolder sets the text that will be displayed if the entry is otherwise empty
@@ -698,6 +724,9 @@ func (e *Entry) TypedRune(r rune) {
 	}
 
 	provider := e.textProvider()
+	if e.OnTypedRune != nil && e.OnTypedRune(r) {
+		return
+	}
 
 	// if we've typed a character and we're selecting then replace the selection with the character
 	if e.selecting {
@@ -825,6 +854,9 @@ func (e *Entry) TypedKey(key *fyne.KeyEvent) {
 	}
 
 	provider := e.textProvider()
+	if e.OnTypedKey != nil && e.OnTypedKey(key) {
+		return
+	}
 
 	if e.selectKeyDown || e.selecting {
 		if e.selectingKeyHandler(key) {
