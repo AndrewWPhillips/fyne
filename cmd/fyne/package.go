@@ -13,7 +13,7 @@ import (
 	"runtime"
 
 	"fyne.io/fyne/cmd/fyne/internal/mobile"
-	"github.com/Kodeworks/golang-image-ico"
+	ico "github.com/Kodeworks/golang-image-ico"
 	"github.com/jackmordaunt/icns"
 	"github.com/josephspurrier/goversioninfo"
 	"github.com/pkg/errors"
@@ -107,7 +107,7 @@ func (p *packager) packageLinux() error {
 	copyFile(p.icon, iconPath)
 
 	if !p.install {
-		tarCmd := exec.Command("tar", "cf", p.name+".tar.gz", "usr")
+		tarCmd := exec.Command("tar", "zcf", p.name+".tar.gz", "usr")
 		tarCmd.Run()
 	}
 
